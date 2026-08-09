@@ -91,6 +91,24 @@ plays inline; anything else becomes a download link showing the file name.
 This is decided client-side by mime type, in the `cuzySuneditor` JS module —
 see its file for how each SunEditor upload plugin gets wired up.
 
+### Removing a toolbar button: `excludeButtons`
+
+```php
+<?= $form->field($model, 'description')->widget(SuneditorField::class, [
+    'excludeButtons' => ['codeView', 'blockStyle', 'align'],
+]) ?>
+```
+
+For dropping one or two buttons from the default `buttonList` without having
+to restate the rest of it — the same reason leaving `uploadUrl` unset already
+drops `fileUpload` on its own. A button that was alone in its group (like
+`blockStyle` or `align` above) takes its now-empty group with it, rather than
+leaving a stray gap in the toolbar.
+
+To add buttons, reorder the default ones, or configure a button's own dropdown
+items (e.g. `blockStyle`'s heading levels), set `buttonList` directly — the
+full button catalogue is in the [options reference](https://suneditor.com/options).
+
 ### Widening what the editor accepts: `editorOptions`
 
 `editorOptions` is a raw passthrough to SunEditor's own `create()` call — every

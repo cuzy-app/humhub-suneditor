@@ -57,18 +57,36 @@ class SuneditorField extends InputWidget
     /**
      * SunEditor buttonList configuration.
      * `fileUpload` is dropped when {@see $uploadUrl} is not set — it has nowhere
-     * to send the file.
+     * to send the file. Drop any of the others with {@see $excludeButtons} rather
+     * than rewriting this whole array.
      * @var array
      */
     public array $buttonList = [
         ['undo', 'redo'], '|',
+        ['blockStyle'], '|',
         ['bold', 'italic', 'underline'], '|',
+        ['align'], '|',
         ['list', 'link', 'image', 'fileUpload'], '|',
         ['blockquote', 'removeFormat'], '|',
         ['outdent', 'indent'], '|',
         ['fullScreen', 'codeView'], '|',
         ['preview', 'print'],
     ];
+
+    /**
+     * Button keys to drop from {@see $buttonList}, e.g. `['codeView', 'blockStyle']`.
+     *
+     * For removing a button or two from the default toolbar without having to
+     * restate the rest of it — the same reason {@see $uploadUrl} being unset
+     * already drops `fileUpload` on its own. A group that ends up empty (e.g.
+     * excluding `blockStyle`, which has no other button in its group) is
+     * dropped entirely rather than left as a stray empty segment.
+     *
+     * To add buttons instead, or reorder the existing ones, set
+     * {@see $buttonList} directly — SunEditor's full button catalogue is in the
+     * [options reference](https://suneditor.com/options).
+     */
+    public array $excludeButtons = [];
 
     /**
      * Raw SunEditor `create()` options, merged in on top of everything this
@@ -160,21 +178,44 @@ class SuneditorField extends InputWidget
     }
 
     /**
-     * @return array the buttonList with the buttons that cannot work in this
-     *         configuration removed
+     * @return array {@see $buttonList} with {@see $excludeButtons} and any
+     *         button that cannot work in this configuration removed
      */
     private function getButtonList(): array
     {
-        if ($this->uploadUrl !== null) {
+        $exclude = $this->excludeButtons;
+        if ($this->uploadUrl === null) {
+            $exclude[] = 'fileUpload';
+        }
+
+        if ($exclude === []) {
             return $this->buttonList;
         }
 
-        return array_map(
-            static fn($group) => is_array($group)
-                ? array_values(array_diff($group, ['fileUpload']))
-                : $group,
+        $buttonList = array_map(
+            static fn($group) => is_array($group) ? array_values(array_diff($group, $exclude)) : $group,
             $this->buttonList,
         );
+
+        // A group excluded down to nothing (e.g. ['blockStyle'] once blockStyle
+        // itself is excluded) would otherwise render as a stray empty segment,
+        // and removing it can leave two '|' separators back to back — SunEditor
+        // renders a run of these as a visible double gap. Collapse both away,
+        // including a leading/trailing '|' left by the first/last group emptying.
+        $buttonList = array_values(array_filter($buttonList, static fn($group) => $group !== []));
+
+        $result = [];
+        foreach ($buttonList as $item) {
+            if ($item === '|' && ($result === [] || end($result) === '|')) {
+                continue;
+            }
+            $result[] = $item;
+        }
+        if (end($result) === '|') {
+            array_pop($result);
+        }
+
+        return $result;
     }
 
     /**
