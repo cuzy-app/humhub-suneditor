@@ -129,6 +129,32 @@ humhub.module('cuzySuneditor', function (module, require, $) {
         return params.info;
     };
 
+    // <script>/<style> content, in the code view's own textarea.
+    var RAW_TEXT_ELEMENTS = /(<(script|style)\b[^>]*>)([\s\S]*?)(<\/\2>)/gi;
+
+    /**
+     * Undoes a SunEditor bug: whenever the code view is (re-)populated from the
+     * WYSIWYG DOM — entering code view, or `fullScreen`/`showBlocks` refreshing
+     * it — SunEditor HTML-entity-escapes the text content of *every* element,
+     * `<script>`/`<style>` included. Per the HTML5 spec those two are "raw text"
+     * elements: browsers never entity-decode their contents, so escaping is
+     * simply wrong there — `alert("x")` becomes the code view showing
+     * `alert(&quot;x&quot;)`, which is no longer valid JS, and if the editor
+     * ever leaves code view again (including our own {@see syncBeforeSubmit},
+     * which does exactly that before every submit) that corrupted text is what
+     * gets re-parsed back into the DOM and saved.
+     *
+     * SunEditor ships the exact inverse of the function that caused this
+     * (`helper.converter.entityToHTML`, the counterpart to `htmlToEntity`, which
+     * is what over-escapes here) — this only has to find each raw-text
+     * element's content and run that.
+     */
+    var fixRawTextElements = function (code) {
+        return code.replace(RAW_TEXT_ELEMENTS, function (match, open, tag, inner, close) {
+            return open + SUNEDITOR.helper.converter.entityToHTML(inner) + close;
+        });
+    };
+
     /**
      * Forces the editor out of code view before its form's submit button is
      * clicked, so an edit typed directly into the code view — never toggled
@@ -190,6 +216,14 @@ humhub.module('cuzySuneditor', function (module, require, $) {
                 if (options.fileUpload) {
                     takeOverAttachmentButton(params.$, accept);
                 }
+            },
+            onToggleCodeView: function (params) {
+                if (!params.is) {
+                    return;
+                }
+
+                var codeArea = params.frameContext.get('code');
+                codeArea.value = fixRawTextElements(codeArea.value);
             },
         };
 
