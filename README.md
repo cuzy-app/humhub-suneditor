@@ -93,20 +93,25 @@ see its file for how each SunEditor upload plugin gets wired up.
 
 ### Allowing `<style>`/`<script>` in the editor
 
-SunEditor strips any tag not in its own default element set (`p|pre|blockquote
-|h1|...`, no `script` or `style`) when converting the `codeView` source back
-into the editable DOM — so by default, typing a `<style>` block in code view
-and switching back to the visual editor silently loses it. No extra toolbar
-button unlocks this; `codeView` (already in the default `buttonList`) is the
-only way in SunEditor to type markup the toolbar has no button for, same as
-any other tag. Widen the whitelist through the raw options passthrough:
+SunEditor strips `<style>`/`<script>` when converting the `codeView` source
+back into the editable DOM — so by default, typing one in code view and
+switching back to the visual editor silently loses it. No extra toolbar button
+unlocks this; `codeView` (already in the default `buttonList`) is the only way
+in SunEditor to type markup the toolbar has no button for — the option below
+only controls whether that markup survives the round trip. Allow it through the
+raw options passthrough:
 
 ```php
-'editorOptions' => ['elementWhitelist' => 'style|script'],
+'editorOptions' => ['allowedExtraTags' => ['script' => true, 'style' => true]],
 ```
 
+`elementWhitelist` — the option this looks like it should be — does **not**
+work here on its own: `script`/`style`/`meta`/`link` are independently
+blacklisted by default through `allowedExtraTags`, and that blacklist wins
+regardless of what `elementWhitelist` allows.
+
 Rendering that content back out safely is a separate concern from authoring it
-— see `SuneditorContent::$nonce` below.
+— see `SuneditorContent::addNonce()` below.
 
 ## Rendering: `SuneditorContent`
 
@@ -128,7 +133,7 @@ configurably: HTMLPurifier has no "raw text element" handling for either, so
 anything inside would still be tokenized as ordinary markup, corrupting real JS
 or CSS containing `<`, `>`, `&&`, or a selector like `div > p`. That makes the
 `SuneditorContent` *widget* the wrong tool for content you've decided to allow
-`<style>`/`<script>` in via `elementWhitelist` on the authoring side (above) —
+`<style>`/`<script>` in via `allowedExtraTags` on the authoring side (above) —
 by the time `run()` gets to your `<script>` tag, `purify()` has already run and
 removed it.
 

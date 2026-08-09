@@ -130,6 +130,40 @@ humhub.module('cuzySuneditor', function (module, require, $) {
     };
 
     /**
+     * Forces the editor out of code view before its form's submit button is
+     * clicked, so an edit typed directly into the code view — never toggled
+     * back to the visual editor — is not silently dropped.
+     *
+     * `onChange` only fires from a history push, and Suneditor does not push
+     * history for keystrokes made *inside* the code view textarea — only when
+     * the editor leaves it (`viewer.codeView(false)`, which re-parses the code
+     * view's text into the WYSIWYG DOM and pushes history from there). Without
+     * this, `textarea.value` — what the surrounding <form> actually submits —
+     * still holds whatever the content was before code view was opened.
+     *
+     * Listens in the capture phase, not on the form's `submit` event: HumHub's
+     * own modal dialogs submit via an AJAX click handler on the submit button
+     * (`data-action-click`) that calls `preventDefault()` on the click itself,
+     * so the browser's native form submission — and the `submit` event with it
+     * — never fires at all. A capture-phase listener runs before any of that:
+     * capture travels root-to-target before the click reaches the button, which
+     * is strictly before HumHub's own bubble-phase handler reads the form's
+     * current field values, regardless of which handler was registered first.
+     */
+    var syncBeforeSubmit = function (deps, textarea) {
+        var form = textarea.closest('form');
+        if (!form) {
+            return;
+        }
+
+        form.addEventListener('click', function (evt) {
+            if (evt.target.closest('[type="submit"]')) {
+                deps.viewer.codeView(false);
+            }
+        }, true);
+    };
+
+    /**
      * Replaces a textarea with a Suneditor instance.
      *
      * @param {string} id id of the textarea to replace
@@ -148,14 +182,18 @@ humhub.module('cuzySuneditor', function (module, require, $) {
             onChange: function (content) {
                 textarea.value = content.data;
             },
+            onload: function (params) {
+                syncBeforeSubmit(params.$, textarea);
+
+                // Only when the field was given somewhere to upload to; without
+                // it there is no attachment button and no upload to route.
+                if (options.fileUpload) {
+                    takeOverAttachmentButton(params.$, accept);
+                }
+            },
         };
 
-        // Only when the field was given somewhere to upload to; without it there
-        // is no attachment button and no upload to route.
         if (options.fileUpload) {
-            options.events.onload = function (params) {
-                takeOverAttachmentButton(params.$, accept);
-            };
             options.events.onFileUploadBefore = dropMediaFromAttachments;
         }
 

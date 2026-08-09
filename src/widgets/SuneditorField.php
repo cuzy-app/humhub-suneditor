@@ -82,16 +82,21 @@ class SuneditorField extends InputWidget
      * be defined"); reusing the name even without a type would still silently
      * feed SunEditor options into Bootstrap's own plugin init.
      *
-     * The option most consumers reach for here is `elementWhitelist`: SunEditor
-     * strips any tag not in its own default set (`p|pre|blockquote|h1|...`, no
-     * `script` or `style`) when converting the `codeView` source back into the
-     * editable DOM — the same problem TinyMCE's `extended_valid_elements`
+     * The option most consumers reach for here is `allowedExtraTags`, to allow
+     * `<style>`/`<script>` — the same problem TinyMCE's `extended_valid_elements`
      * solves. No extra toolbar button is needed; `codeView` (already in
      * {@see $buttonList}) is the only way in either editor to type markup the
-     * toolbar has no button for.
+     * toolbar has no button for; the option only controls whether that markup
+     * survives being parsed back into the editable DOM when the editor leaves
+     * code view.
      * ```php
-     * 'editorOptions' => ['elementWhitelist' => 'style|script'],
+     * 'editorOptions' => ['allowedExtraTags' => ['script' => true, 'style' => true]],
      * ```
+     * `elementWhitelist` — the more obviously-named option — does **not** work
+     * for this on its own: `script`/`style`/`meta`/`link` are independently
+     * blacklisted by default through `allowedExtraTags`, and that blacklist
+     * wins regardless of what `elementWhitelist` allows.
+     *
      * Rendering that content back out safely is a separate concern — see
      * {@see \cuzyapp\suneditor\widgets\SuneditorContent::addNonce()}.
      */
