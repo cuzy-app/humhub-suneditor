@@ -32,6 +32,13 @@ class SuneditorFieldAssets extends AssetBundle
 
         $suneditorDist = InstalledVersions::getInstallPath('npm-asset/suneditor') . '/dist';
         [, $suneditorUrl] = Yii::$app->assetManager->publish($suneditorDist);
+        // AssetManager::publish() does not resolve aliases in the URL it returns
+        // (only an AssetBundle's own $baseUrl gets that treatment, in its init()) —
+        // HumHub's AssetManager in particular returns the asset mount's raw,
+        // unresolved `@web/...` alias here. Left unresolved, it would be taken for
+        // a path relative to *this* bundle's own $baseUrl instead of an absolute
+        // URL, doubling up into something like `/assets/<this-hash>/@web/assets/...`.
+        $suneditorUrl = Yii::getAlias($suneditorUrl);
 
         // Prepended: the bootstrap in $js above calls SUNEDITOR.create() at
         // registration time, so the library it refers to must already exist.

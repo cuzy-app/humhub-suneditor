@@ -31,6 +31,11 @@ class SuneditorContentAssets extends AssetBundle
 
         $suneditorDist = InstalledVersions::getInstallPath('npm-asset/suneditor') . '/dist';
         [, $suneditorUrl] = Yii::$app->assetManager->publish($suneditorDist);
+        // See the identical line in SuneditorFieldAssets::init() for why this is
+        // necessary: AssetManager::publish() does not resolve aliases in the URL
+        // it returns, and HumHub's AssetManager returns the asset mount's raw
+        // `@web/...` alias here.
+        $suneditorUrl = Yii::getAlias($suneditorUrl);
 
         // Prepended: content.css's overrides need SunEditor's own rules loaded first.
         array_unshift($this->css, $suneditorUrl . '/suneditor-contents.min.css');
