@@ -69,6 +69,17 @@ class SuneditorContent extends Widget
      * Everything else stays at HTMLPurifier's defaults on purpose: `class` and
      * validated inline `style` are already allowed, which covers the alignment
      * classes and the width the resize handles write.
+     *
+     * `script` and `style` are deliberately never added here, on top of
+     * `figure`/`video`/`audio`. Unlike those, HTMLPurifier has no "raw text
+     * element" handling for either: whatever is inside would still be tokenized
+     * as ordinary markup, corrupting any real JS or CSS containing `<`, `>`,
+     * `&&`, or a selector like `div > p`. Safely keeping them needs their content
+     * pulled out before purification and spliced back in after — a real feature
+     * to build deliberately, not a config tweak here. Content that must keep its
+     * own `<script>`/`<style>` has to skip this method — and this widget, which
+     * always calls it — entirely; see {@see addNonce()} for the one piece of
+     * this class such a caller can still use.
      */
     public static function purify(string $html): string
     {
@@ -94,5 +105,22 @@ class SuneditorContent extends Widget
             ));
             $definition->addElement('audio', 'Block', 'Optional: (source, Flow) | Flow', 'Common', $mediaAttributes);
         });
+    }
+
+    /**
+     * Adds HumHub's current CSP nonce to every `<script>` opening tag, so
+     * inline scripts survive HumHub's Content-Security-Policy header.
+     *
+     * A plain string transform, independent of {@see purify()} and never called
+     * by it — it does not add `script` to any allow-list and does not make raw
+     * HTML safe to render. It exists for a caller that has separately decided,
+     * on its own, that the content it is about to output may contain `<script>`
+     * tags (see {@see purify()}'s docblock for why that decision cannot safely
+     * be made by this class), and still wants the one piece of that job
+     * purification would otherwise have handled for it.
+     */
+    public static function addNonce(string $html): string
+    {
+        return (string) preg_replace('~<script(?=[\s>])~i', '<script ' . Html::nonce(), $html);
     }
 }

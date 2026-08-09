@@ -91,6 +91,23 @@ plays inline; anything else becomes a download link showing the file name.
 This is decided client-side by mime type, in the `cuzySuneditor` JS module —
 see its file for how each SunEditor upload plugin gets wired up.
 
+### Allowing `<style>`/`<script>` in the editor
+
+SunEditor strips any tag not in its own default element set (`p|pre|blockquote
+|h1|...`, no `script` or `style`) when converting the `codeView` source back
+into the editable DOM — so by default, typing a `<style>` block in code view
+and switching back to the visual editor silently loses it. No extra toolbar
+button unlocks this; `codeView` (already in the default `buttonList`) is the
+only way in SunEditor to type markup the toolbar has no button for, same as
+any other tag. Widen the whitelist through the raw options passthrough:
+
+```php
+'clientOptions' => ['elementWhitelist' => 'style|script'],
+```
+
+Rendering that content back out safely is a separate concern from authoring it
+— see `SuneditorContent::$nonce` below.
+
 ## Rendering: `SuneditorContent`
 
 Every place that displays what `SuneditorField` produced must go through this
@@ -105,6 +122,30 @@ use cuzyapp\suneditor\widgets\SuneditorContent;
 ```
 
 Renders nothing for empty content, so callers don't need to guard the call.
+
+`purify()` never allows `script` or `style` through, on purpose and not
+configurably: HTMLPurifier has no "raw text element" handling for either, so
+anything inside would still be tokenized as ordinary markup, corrupting real JS
+or CSS containing `<`, `>`, `&&`, or a selector like `div > p`. That makes the
+`SuneditorContent` *widget* the wrong tool for content you've decided to allow
+`<style>`/`<script>` in via `elementWhitelist` on the authoring side (above) —
+by the time `run()` gets to your `<script>` tag, `purify()` has already run and
+removed it.
+
+For that case — rendering content that was never purified at all, because
+`script`/`style` are part of what your module intentionally allows (content
+only administrators can author, say) — call `SuneditorContent::addNonce()`
+directly instead of the widget. It adds HumHub's current CSP nonce to every
+`<script>` opening tag, as a plain string transform with no purification
+attached:
+
+```php
+// $html is rendered as-is, never passed through SuneditorContent::purify() —
+// this project has already decided, on its own, that it may contain <script>
+// tags, and is only reaching for the one piece of that job purification would
+// otherwise have handled: the nonce.
+echo SuneditorContent::addNonce($html);
+```
 
 ## Saving and cleanup: `EditorFileHelper`
 

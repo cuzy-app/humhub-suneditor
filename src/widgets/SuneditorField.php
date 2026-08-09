@@ -70,6 +70,26 @@ class SuneditorField extends InputWidget
         ['preview', 'print'],
     ];
 
+    /**
+     * Raw SunEditor `create()` options, merged in on top of everything this
+     * widget computes — an escape hatch for anything not exposed as its own
+     * property, mirroring `\dosamigos\tinymce\TinyMce::$clientOptions`.
+     *
+     * The option most consumers reach for here is `elementWhitelist`: SunEditor
+     * strips any tag not in its own default set (`p|pre|blockquote|h1|...`, no
+     * `script` or `style`) when converting the `codeView` source back into the
+     * editable DOM — the same problem TinyMCE's `extended_valid_elements`
+     * solves. No extra toolbar button is needed; `codeView` (already in
+     * {@see $buttonList}) is the only way in either editor to type markup the
+     * toolbar has no button for.
+     * ```php
+     * 'clientOptions' => ['elementWhitelist' => 'style|script'],
+     * ```
+     * Rendering that content back out safely is a separate concern — see
+     * {@see \cuzyapp\suneditor\widgets\SuneditorContent::$nonce}.
+     */
+    public array $clientOptions = [];
+
     public function run(): string
     {
         SuneditorFieldAssets::register($this->view);
@@ -86,6 +106,7 @@ class SuneditorField extends InputWidget
                 'buttonList' => $this->getButtonList(),
             ],
             $this->getUploadOptions(),
+            $this->clientOptions,
         );
 
         // JSON_HEX_TAG keeps a `</script>` inside the stored content — perfectly
