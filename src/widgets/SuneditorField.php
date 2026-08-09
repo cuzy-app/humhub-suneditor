@@ -73,7 +73,9 @@ class SuneditorField extends InputWidget
     /**
      * Raw SunEditor `create()` options, merged in on top of everything this
      * widget computes — an escape hatch for anything not exposed as its own
-     * property, mirroring `\dosamigos\tinymce\TinyMce::$clientOptions`.
+     * property, mirroring `\dosamigos\tinymce\TinyMce::$clientOptions`. The full
+     * reference is https://suneditor.com/options — everything documented there
+     * is a valid key.
      *
      * Not named `$clientOptions`: this class extends `yii\bootstrap5\InputWidget`,
      * which already inherits an *untyped* `public $clientOptions = []` from
@@ -82,20 +84,33 @@ class SuneditorField extends InputWidget
      * be defined"); reusing the name even without a type would still silently
      * feed SunEditor options into Bootstrap's own plugin init.
      *
-     * The option most consumers reach for here is `allowedExtraTags`, to allow
-     * `<style>`/`<script>` — the same problem TinyMCE's `extended_valid_elements`
-     * solves. No extra toolbar button is needed; `codeView` (already in
-     * {@see $buttonList}) is the only way in either editor to type markup the
-     * toolbar has no button for; the option only controls whether that markup
-     * survives being parsed back into the editable DOM when the editor leaves
-     * code view.
-     * ```php
-     * 'editorOptions' => ['allowedExtraTags' => ['script' => true, 'style' => true]],
-     * ```
-     * `elementWhitelist` — the more obviously-named option — does **not** work
-     * for this on its own: `script`/`style`/`meta`/`link` are independently
-     * blacklisted by default through `allowedExtraTags`, and that blacklist
-     * wins regardless of what `elementWhitelist` allows.
+     * Two option groups exist specifically to widen what typing directly into
+     * `codeView` (already in {@see $buttonList}) can get past the editor — the
+     * only way in SunEditor to author markup the toolbar has no button for, so
+     * these are the equivalent of TinyMCE's `extended_valid_elements`:
+     *
+     * - `allowedExtraTags`, to allow `<style>`/`<script>`:
+     *   ```php
+     *   'editorOptions' => ['allowedExtraTags' => ['script' => true, 'style' => true]],
+     *   ```
+     *   `elementWhitelist` — the more obviously-named option — does **not** work
+     *   for this on its own: `script`/`style`/`meta`/`link` are independently
+     *   blacklisted by default through `allowedExtraTags`, and that blacklist
+     *   wins regardless of what `elementWhitelist` allows.
+     *
+     * - `strictMode`, to keep an `id`, a custom `class`, or an inline `style` an
+     *   author types on an element (SunEditor drops all three by default —
+     *   `id` and `style` entirely, `class` down to SunEditor's own internal
+     *   classes):
+     *   ```php
+     *   'editorOptions' => ['strictMode' => [
+     *       'attrFilter' => false, 'classFilter' => false, 'styleFilter' => false,
+     *   ]],
+     *   ```
+     *   All three have to go together: `attrFilter` alone still drops every
+     *   attribute whenever `styleFilter` is on, because both share the one
+     *   internal pass that rewrites an element's opening tag, and that pass
+     *   keeps only what either filter explicitly collects.
      *
      * Rendering that content back out safely is a separate concern — see
      * {@see \cuzyapp\suneditor\widgets\SuneditorContent::addNonce()}.

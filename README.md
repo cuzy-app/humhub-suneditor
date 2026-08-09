@@ -91,15 +91,19 @@ plays inline; anything else becomes a download link showing the file name.
 This is decided client-side by mime type, in the `cuzySuneditor` JS module —
 see its file for how each SunEditor upload plugin gets wired up.
 
-### Allowing `<style>`/`<script>` in the editor
+### Widening what the editor accepts: `editorOptions`
 
-SunEditor strips `<style>`/`<script>` when converting the `codeView` source
-back into the editable DOM — so by default, typing one in code view and
-switching back to the visual editor silently loses it. No extra toolbar button
-unlocks this; `codeView` (already in the default `buttonList`) is the only way
-in SunEditor to type markup the toolbar has no button for — the option below
-only controls whether that markup survives the round trip. Allow it through the
-raw options passthrough:
+`editorOptions` is a raw passthrough to SunEditor's own `create()` call — every
+option in the [full SunEditor options reference](https://suneditor.com/options)
+is a valid key, not just the two below. Those two exist because they come up
+for essentially every module that lets an author drop into `codeView`
+(already in the default `buttonList` — the only way in SunEditor to type
+markup the toolbar has no button for) and write something the toolbar can't
+produce:
+
+**`<style>`/`<script>`.** SunEditor strips both when converting the `codeView`
+source back into the editable DOM, so typing one in and switching back to the
+visual editor silently loses it:
 
 ```php
 'editorOptions' => ['allowedExtraTags' => ['script' => true, 'style' => true]],
@@ -109,6 +113,21 @@ raw options passthrough:
 work here on its own: `script`/`style`/`meta`/`link` are independently
 blacklisted by default through `allowedExtraTags`, and that blacklist wins
 regardless of what `elementWhitelist` allows.
+
+**`id`, a custom `class`, or an inline `style` on an element.** SunEditor drops
+all three by default — `id` and `style` entirely, `class` down to nothing
+outside its own internal classes:
+
+```php
+'editorOptions' => ['strictMode' => [
+    'attrFilter' => false, 'classFilter' => false, 'styleFilter' => false,
+]],
+```
+
+All three have to go together: `attrFilter` alone still drops every attribute
+whenever `styleFilter` is on, because both share the one internal pass that
+rewrites an element's opening tag, and that pass keeps only what either filter
+explicitly collected.
 
 Rendering that content back out safely is a separate concern from authoring it
 — see `SuneditorContent::addNonce()` below.
