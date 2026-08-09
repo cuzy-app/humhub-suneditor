@@ -102,7 +102,7 @@ only way in SunEditor to type markup the toolbar has no button for, same as
 any other tag. Widen the whitelist through the raw options passthrough:
 
 ```php
-'clientOptions' => ['elementWhitelist' => 'style|script'],
+'editorOptions' => ['elementWhitelist' => 'style|script'],
 ```
 
 Rendering that content back out safely is a separate concern from authoring it

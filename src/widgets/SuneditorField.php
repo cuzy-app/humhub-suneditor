@@ -75,6 +75,13 @@ class SuneditorField extends InputWidget
      * widget computes — an escape hatch for anything not exposed as its own
      * property, mirroring `\dosamigos\tinymce\TinyMce::$clientOptions`.
      *
+     * Not named `$clientOptions`: this class extends `yii\bootstrap5\InputWidget`,
+     * which already inherits an *untyped* `public $clientOptions = []` from
+     * `BootstrapWidgetTrait` — its own Bootstrap JS plugin options, unrelated to
+     * SunEditor. Redeclaring it here with a type is a fatal ("Type ... must not
+     * be defined"); reusing the name even without a type would still silently
+     * feed SunEditor options into Bootstrap's own plugin init.
+     *
      * The option most consumers reach for here is `elementWhitelist`: SunEditor
      * strips any tag not in its own default set (`p|pre|blockquote|h1|...`, no
      * `script` or `style`) when converting the `codeView` source back into the
@@ -83,12 +90,12 @@ class SuneditorField extends InputWidget
      * {@see $buttonList}) is the only way in either editor to type markup the
      * toolbar has no button for.
      * ```php
-     * 'clientOptions' => ['elementWhitelist' => 'style|script'],
+     * 'editorOptions' => ['elementWhitelist' => 'style|script'],
      * ```
      * Rendering that content back out safely is a separate concern — see
-     * {@see \cuzyapp\suneditor\widgets\SuneditorContent::$nonce}.
+     * {@see \cuzyapp\suneditor\widgets\SuneditorContent::addNonce()}.
      */
-    public array $clientOptions = [];
+    public array $editorOptions = [];
 
     public function run(): string
     {
@@ -106,7 +113,7 @@ class SuneditorField extends InputWidget
                 'buttonList' => $this->getButtonList(),
             ],
             $this->getUploadOptions(),
-            $this->clientOptions,
+            $this->editorOptions,
         );
 
         // JSON_HEX_TAG keeps a `</script>` inside the stored content — perfectly
