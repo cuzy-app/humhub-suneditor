@@ -28,6 +28,14 @@ usually already present at the application root):
 }
 ```
 
+Deliberately **not** a `require` here: `yiisoft/yii2`, `yiisoft/yii2-bootstrap5` and
+HumHub's own core classes. They're always already loaded by the HumHub
+application that loads your module — declaring them would install a second,
+separate copy inside your module's own vendor directory instead of using the
+one already running, and pulls in `yiisoft/yii2-composer`, a Composer plugin
+most module vendor directories don't allow-list. Same convention every HumHub
+module composer.json follows for `humhub/humhub` itself.
+
 ## Wiring an upload endpoint
 
 `UploadAction` handles the HTTP side (validating the file against the
