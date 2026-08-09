@@ -1,0 +1,15 @@
+/* Overrides for rendered SunEditor content, applied on top of SunEditor's own
+   suneditor-contents.min.css (published alongside this file — see
+   SuneditorContentAssets). See widgets/SuneditorContent.php for the class this
+   file is scoped to. */
+
+/* In the editor, clicking an image should select the whole component; SunEditor
+   gets that with `user-select: all`. In rendered (read-only) content it means a
+   reader cannot select the text around an image without swallowing it.
+   Specificity beats SunEditor's own (four classes to its three) so this applies
+   whichever bundle the page happens to load first. */
+.sun-editor-editable.suneditor-content .se-component:not(.se-input-component) {
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+    user-select: auto;
+}
