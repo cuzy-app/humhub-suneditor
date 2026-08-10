@@ -60,6 +60,11 @@ class UploadAction extends Action
         foreach ($uploads as $uploadedFile) {
             $file = new FileUpload();
             $file->setUploadedFile($uploadedFile);
+            // Embedded inline in the editor's own HTML, so it must not also show
+            // up in the record's generic file list (e.g. a wall entry's file
+            // footer, which lists every attached file with show_in_stream=1 —
+            // the File model's default) — that would show the same file twice.
+            $file->show_in_stream = false;
 
             if (!$file->save()) {
                 return ['errorMessage' => implode(' ', $file->getErrorSummary(true))];
