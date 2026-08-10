@@ -5,6 +5,21 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-08-10
+
+### Docs
+
+- Documented `strictMode.formatFilter: false` for preserving arbitrary
+  pasted/code-view structure — a wrapping `<div>` SunEditor would otherwise
+  drop, or an `<img>` nested inside a heading that SunEditor would otherwise
+  pull out into a managed component — on both paste and `codeView` exit.
+  Verified against the vendored `suneditor.min.js`: toolbar-driven typing,
+  Enter, and image insertion are unaffected, since they build correct
+  component markup directly rather than through this pass. Not on by
+  default; it is a real tradeoff (an image pasted/typed as plain markup
+  loses the resize handles a toolbar-inserted one gets), documented in
+  `SuneditorField::$editorOptions` and the README.
+
 ## [1.2.2] - 2026-08-10
 
 ### Fixed
@@ -146,6 +161,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[1.2.3]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.4...v1.2.0
