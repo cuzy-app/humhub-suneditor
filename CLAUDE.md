@@ -74,6 +74,18 @@ CHANGELOG.md entry); this is only the index so you know where to look:
   generically (e.g. a wall entry's file footer). Set in `UploadAction`, not in
   `EditorFileHelper::sync()`, since it has to happen once, at upload time —
   not be recomputed every sync. See [CHANGELOG.md#1.2.1](CHANGELOG.md).
+- **Leaving code view can silently drop a leading `<script>`/`<style>` block,
+  and separately can mangle one's internal whitespace.** Both are SunEditor
+  bugs unrelated to any option this package sets — a leading raw-text element
+  (nothing before it but whitespace/a comment) gets lost to a full-document
+  `DOMParser` parse's head/body insertion-mode quirk inside `autoStyleify`;
+  `html.compress()` strips every newline in the whole string, including
+  inside `<script>`/`<style>`, with no raw-text-element awareness at all.
+  Both are worked around in `humhub.suneditor.js`
+  (`guardLeadingRawTextElement`, `guardRawTextWhitespace`) by monkey-patching
+  `viewer.codeView`/`html.compress` on the live SunEditor instance — there is
+  no public option for either. See [CHANGELOG.md#1.2.2](CHANGELOG.md) for the
+  full trace of both root causes.
 - **`EditorFileHelper::sync()`'s `$keepGuids` contract is easy to get wrong.**
   It must be *every* guid the record owns outside the editor field, not just
   "whatever this request's form happened to submit" — a caller that passes an
