@@ -5,6 +5,33 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-08-10
+
+### Fixed
+
+Two SunEditor bugs affecting `<script>`/`<style>` content, unrelated to any
+option this package sets and to each other:
+
+- Leaving the code view dropped a `<script>`/`<style>` block entirely when it
+  was the first real content — nothing before it but whitespace or an HTML
+  comment. Root cause: an internal `autoStyleify` step round-trips the code
+  through a *full document* `DOMParser` parse, and the HTML5 parsing
+  algorithm only switches from "in head" to "in body" insertion mode once it
+  sees content that isn't valid inside `<head>` — `<script>`/`<style>`/HTML
+  comments all are, so nothing forces the switch and they land in `<head>`
+  instead, invisible to `.body.innerHTML`. Fixed by momentarily prepending an
+  empty `<p></p>` before such a block right before code view closes; it
+  forces the mode switch and is itself removed moments later by SunEditor's
+  own empty-line cleanup.
+- `html.compress()` — called at the start of every `html.clean()`: leaving
+  code view, every paste, any programmatic HTML insert — strips every
+  newline in the whole string and collapses whitespace between any two tags,
+  with no concept of a raw-text element. A carefully indented stylesheet or
+  script survives the paste itself untouched, then loses all its formatting
+  the moment the editor leaves code view. Fixed by pulling
+  `<script>`/`<style>` blocks out before `compress()` runs and splicing the
+  originals back in after.
+
 ## [1.2.1] - 2026-08-10
 
 ### Fixed
@@ -119,6 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[1.2.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.4...v1.2.0
 [1.1.4]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.3...v1.1.4
