@@ -232,6 +232,10 @@ $copy->thumbnail_file_guid = FileDuplicator::duplicate($source->thumbnail_file_g
 $copy->description = EditorFileHelper::duplicateEmbeddedFiles($source->description, $copy);
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 AGPL-3.0-or-later — see [LICENSE](LICENSE).

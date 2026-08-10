@@ -1,0 +1,131 @@
+# Changelog
+
+All notable changes to this package are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.1] - 2026-08-10
+
+### Fixed
+
+- A file embedded through the editor's own inline upload (image, video, audio,
+  attachment) also showed up a second time in anything that renders the
+  record's generic file list (e.g. a wall entry's file footer). `show_in_stream`
+  defaults to `true` on `File` and `FileManager::attach()` never touches it, so
+  the embed was both rendered inline by the editor's own HTML and listed again
+  as a separate attachment. `UploadAction` now sets `show_in_stream = false` on
+  every file it creates.
+
+## [1.2.0] - 2026-08-09
+
+### Added
+
+- `blockStyle` (paragraph/heading dropdown: P, blockquote, H1-H6) and `align`
+  (left/center/right/justify) buttons to the default `$buttonList`.
+- `SuneditorField::$excludeButtons` to drop specific buttons (e.g. `codeView`)
+  without having to restate the whole `$buttonList`. A button left alone in its
+  own group takes that now-empty group with it, and a stray `'|'` separator
+  left next to another by a removed group collapses too.
+
+## [1.1.4] - 2026-08-09
+
+### Fixed
+
+- SunEditor's own code-view serializer (`_convertToCode()`) HTML-entity-escapes
+  every text node, including inside `<script>`/`<style>`, which HTML5 defines
+  as raw text browsers never entity-decode there — corrupting real JS/CSS the
+  moment the code view was opened, and persisting on save once the editor left
+  code view again (including via the `syncBeforeSubmit` fix from 1.1.2, which
+  forces exactly that before every submit). Hooked the documented
+  `onToggleCodeView` event to reverse the escaping over `<script>`/`<style>`
+  block contents using SunEditor's own inverse function
+  (`helper.converter.entityToHTML`) on entering code view.
+
+## [1.1.3] - 2026-08-09
+
+### Docs
+
+- Linked the full [SunEditor options reference](https://suneditor.com/options)
+  from the README and `SuneditorField::$editorOptions`.
+- Documented `strictMode: {attrFilter, classFilter, styleFilter}` (all three
+  `false`) as what actually preserves an `id`, a custom `class`, or an inline
+  `style` typed directly into the code view — SunEditor drops all three by
+  default, and `attrFilter` alone is not enough since it and `styleFilter`
+  share one internal pass that keeps only what either filter explicitly
+  collects.
+
+## [1.1.2] - 2026-08-09
+
+### Fixed
+
+- `script`/`style`/`meta`/`link` are independently blacklisted by default via
+  `allowedExtraTags` (`{script: false, style: false, ...}`), and that
+  blacklist wins over `elementWhitelist` regardless of what the latter allows
+  — `elementWhitelist` alone never worked for this and was a documentation
+  bug. Corrected the docblock and README to `allowedExtraTags`.
+- An edit typed directly into the code view, then submitted without toggling
+  back to the visual editor first, was silently dropped: `onChange` only
+  fires from a history push, and SunEditor does not push history for
+  code-view keystrokes. `humhub.suneditor.js` now forces the editor out of
+  code view on a capture-phase click on the form's submit button, before
+  HumHub's own AJAX modal-dialog submit handler can read the form's fields.
+
+## [1.1.1] - 2026-08-09
+
+### Fixed
+
+- Renamed `SuneditorField::$clientOptions` to `$editorOptions`:
+  `yii\bootstrap5\InputWidget` already inherits an untyped
+  `public $clientOptions = []` from `BootstrapWidgetTrait` for its own
+  Bootstrap JS plugin options. Redeclaring it with a type is a PHP fatal —
+  a child class cannot add a type to a property the parent declared without
+  one.
+
+## [1.1.0] - 2026-08-09
+
+### Added
+
+- `SuneditorField::$clientOptions`, a raw `create()` options passthrough
+  (mirrors `dosamigos\tinymce\TinyMce::$clientOptions`) — renamed to
+  `$editorOptions` in 1.1.1.
+- `SuneditorContent::addNonce()`, a standalone string transform that adds
+  HumHub's CSP nonce to `<script>` opening tags, for a caller that renders
+  script-carrying content outside `purify()`'s pipeline entirely. Not wired
+  into `purify()`: HTMLPurifier has no raw-text-element handling for
+  `<script>`/`<style>`, so their contents would be tokenized as ordinary
+  markup and corrupted.
+
+## [1.0.2] - 2026-08-09
+
+### Fixed
+
+- Resolved the `@web` alias `AssetManager::publish()` leaves unresolved in its
+  returned URL. Without this, the published SunEditor library URL was taken
+  as relative to the bundle's own `baseUrl` instead of absolute, doubling up
+  into a broken path.
+
+## [1.0.1] - 2026-08-09
+
+### Changed
+
+- Dropped the `yiisoft/yii2` Composer requirement — always provided by the
+  host HumHub application.
+
+## [1.0.0] - 2026-08-09
+
+### Added
+
+- Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
+  upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
+
+[1.2.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.4...v1.2.0
+[1.1.4]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.0.2...v1.1.0
+[1.0.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/cuzy-app/humhub-suneditor/releases/tag/v1.0.0
