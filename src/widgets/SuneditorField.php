@@ -130,6 +130,24 @@ class SuneditorField extends InputWidget
      *   internal pass that rewrites an element's opening tag, and that pass
      *   keeps only what either filter explicitly collects.
      *
+     * - `strictMode.formatFilter: false`, to stop SunEditor coercing pasted or
+     *   code-view content into its own line/block/component model — the pass
+     *   that drops a wrapping element it doesn't recognize as a valid
+     *   container, or pulls an `<img>`/`<video>`/similar out of its
+     *   surrounding line to rebuild it as one of SunEditor's own managed
+     *   components:
+     *   ```php
+     *   'editorOptions' => ['strictMode' => ['formatFilter' => false]],
+     *   ```
+     *   Toolbar-driven editing is unaffected — typing, Enter, and the
+     *   toolbar's own image/video insert build correct component markup
+     *   directly, independent of this pass. Only content that goes through
+     *   paste/`codeView`/a programmatic insert loses SunEditor's own
+     *   restructuring, including — for an image pasted or typed as plain
+     *   markup rather than inserted via the toolbar — the resize handles a
+     *   managed component would have gotten. Not on by default; decide per
+     *   field whether "preserve exactly what was typed" is worth that.
+     *
      * Rendering that content back out safely is a separate concern — see
      * {@see \cuzyapp\suneditor\widgets\SuneditorContent::addNonce()}.
      */

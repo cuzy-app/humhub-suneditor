@@ -147,6 +147,32 @@ whenever `styleFilter` is on, because both share the one internal pass that
 rewrites an element's opening tag, and that pass keeps only what either filter
 explicitly collected.
 
+**Arbitrary structure — a `<div>` wrapping a heading, an `<img>` nested inside
+one, or anything else that doesn't fit SunEditor's own line/block/component
+model.** On every paste and on every `codeView` exit, SunEditor coerces
+content into that model: a wrapping element it doesn't recognize as a valid
+container gets dropped, and any `<img>`/`<video>`/similar gets pulled out of
+its surrounding line and rebuilt as one of SunEditor's own managed,
+resizable "components". For most authoring this is exactly what you want; for
+a field that exists specifically so an author can paste or type a hand-built
+HTML/CSS snippet and have it survive untouched, it silently rewrites the
+one thing the field is for:
+
+```php
+'editorOptions' => ['strictMode' => ['formatFilter' => false]],
+```
+
+This turns that whole pass off — pasted or code-view content keeps whatever
+structure it already had. Toolbar-driven editing is unaffected (typing,
+Enter, and the toolbar's own image/video insert build correct component
+markup directly, independent of this pass), so the tradeoff is narrow: only
+content that goes through paste/`codeView`/a programmatic `html.insert()`
+loses SunEditor's own restructuring — including, for an `<img>` pasted or
+typed as plain markup rather than inserted via the toolbar, the resize
+handles and alignment controls a managed component would have gotten. Decide
+per field whether that's the right trade — it is not part of the two options
+above, and is not on by default.
+
 Rendering that content back out safely is a separate concern from authoring it
 — see `SuneditorContent::addNonce()` below.
 
