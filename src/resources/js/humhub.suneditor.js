@@ -156,6 +156,102 @@ humhub.module('cuzySuneditor', function (module, require, $) {
     };
 
     /**
+     * Undoes a third SunEditor bug, in the same family as
+     * {@see fixRawTextElements} and {@see guardLeadingRawTextElement}:
+     * `html.compress()` — called at the very start of *every* `html.clean()`,
+     * i.e. on leaving code view, on every paste, and on any programmatic HTML
+     * insert — is two blind regexes with no concept of a raw-text element:
+     * `.replace(/>\s+</g, '> <')` collapses whitespace between *any* adjacent
+     * tags, and `.replace(/\n/g, '')` removes *every* newline in the string —
+     * including ones inside a `<script>`/`<style>` block's own JS/CSS. A
+     * carefully indented stylesheet typed or pasted into the code view is
+     * untouched by the paste itself (a `<textarea>` never reformats anything);
+     * it comes out on one line, indentation gone, the moment the editor
+     * leaves code view.
+     *
+     * Collapsing whitespace between ordinary tags is normal, intentional
+     * behavior for a WYSIWYG editor — insignificant whitespace has no visual
+     * meaning in HTML, and no SunEditor option changes that — so this leaves
+     * it alone. Only the part that reaches *inside* a raw-text element, where
+     * whitespace means exactly what it means in a `.css`/`.js` file, is a bug.
+     *
+     * Fixed by pulling every `<script>`/`<style>` block out before compress()
+     * runs and splicing the untouched originals back in after, on the
+     * `html.compress()` method every internal caller already goes through —
+     * so this covers paste and programmatic insert as well as leaving code
+     * view, not just the one path {@see guardLeadingRawTextElement} guards.
+     */
+    var guardRawTextWhitespace = function (deps) {
+        var originalCompress = deps.html.compress.bind(deps.html);
+
+        deps.html.compress = function (html) {
+            var blocks = [];
+            var placeholderHtml = html.replace(RAW_TEXT_ELEMENTS, function (block) {
+                blocks.push(block);
+                return '\x00' + (blocks.length - 1) + '\x00';
+            });
+
+            return originalCompress(placeholderHtml).replace(/\x00(\d+)\x00/g, function (match, index) {
+                return blocks[+index];
+            });
+        };
+    };
+
+    // A leading `<script>`/`<style>` in the code view, ignoring any HTML
+    // comment or whitespace before it — the only shapes that trigger the bug
+    // guardLeadingRawTextElement() works around. Once *any* other content
+    // (even just text or a <br>) precedes it, the bug does not occur.
+    var LEADING_RAW_TEXT_ELEMENT = /^(?:\s|<!--[\s\S]*?-->)*<(?:script|style)\b/i;
+
+    /**
+     * Undoes another SunEditor bug, distinct from {@see fixRawTextElements}:
+     * leaving the code view drops a `<script>`/`<style>` block entirely when
+     * it is the first real content — nothing else precedes it except
+     * whitespace or an HTML comment.
+     *
+     * Root cause is in a SunEditor-internal step unrelated to any option this
+     * package sets (`autoStyleify`, on by default, which auto-converts
+     * bold/underline/italic/strike markup on every code-view exit): it
+     * round-trips the code through `DOMParser.parseFromString(html,
+     * 'text/html')` and reads back `.body.innerHTML`. That is a *full
+     * document* parse, not a fragment parse — and per the HTML5 parsing
+     * algorithm, a document parser starts in "in head" insertion mode and
+     * only switches to "in body" once it sees content that isn't valid inside
+     * `<head>`. `<script>`/`<style>`/HTML comments are all valid there, so
+     * nothing forces the switch; the parser inserts them into `<head>`
+     * instead, and `.body.innerHTML` no longer contains them. Any other
+     * top-level content (text, `<br>`, `<p>`, …) is not valid in `<head>` and
+     * forces the switch immediately, which is why the bug never shows up once
+     * something else precedes the block.
+     *
+     * Fixed by prepending an empty `<p></p>` before such a block right before
+     * the code view closes — enough to force "in body" mode during that one
+     * internal parse. The placeholder never reaches the saved content:
+     * SunEditor's own cleanup removes empty format lines a moment later, in
+     * the same pass. Verified against the vendored suneditor.min.js, both
+     * directly (`html.clean()`) and through the real `codeView(false)`
+     * toggle, including a leading HTML comment and a `<script>` followed by a
+     * `<style>` with nothing else before either.
+     */
+    var guardLeadingRawTextElement = function (deps) {
+        var originalCodeView = deps.viewer.codeView.bind(deps.viewer);
+
+        deps.viewer.codeView = function (value) {
+            var frameContext = deps.frameContext;
+            var isCodeView = frameContext.get('isCodeView');
+            var targetValue = value === undefined ? !isCodeView : value;
+            var leavingCodeView = isCodeView && !targetValue;
+            var codeArea = leavingCodeView ? frameContext.get('code') : null;
+
+            if (codeArea && LEADING_RAW_TEXT_ELEMENT.test(codeArea.value)) {
+                codeArea.value = '<p></p>' + codeArea.value;
+            }
+
+            return originalCodeView(value);
+        };
+    };
+
+    /**
      * Forces the editor out of code view before its form's submit button is
      * clicked, so an edit typed directly into the code view — never toggled
      * back to the visual editor — is not silently dropped.
@@ -209,6 +305,8 @@ humhub.module('cuzySuneditor', function (module, require, $) {
                 textarea.value = content.data;
             },
             onload: function (params) {
+                guardRawTextWhitespace(params.$);
+                guardLeadingRawTextElement(params.$);
                 syncBeforeSubmit(params.$, textarea);
 
                 // Only when the field was given somewhere to upload to; without
