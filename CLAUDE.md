@@ -86,6 +86,24 @@ CHANGELOG.md entry); this is only the index so you know where to look:
   `viewer.codeView`/`html.compress` on the live SunEditor instance — there is
   no public option for either. See [CHANGELOG.md#1.2.2](CHANGELOG.md) for the
   full trace of both root causes.
+- **Every guid read out of editor content is untrusted input.** `GUID_PATTERN`
+  matches a bare `guid=<uuid>` anywhere in the HTML — inside a link's URL as
+  readily as in the code view — so an author can name any file in the
+  installation. Both helpers that consume those guids must therefore check
+  entitlement before acting on one: `sync()` attaches only the current user's
+  own unassigned uploads, and `duplicateEmbeddedFiles()` copies only files
+  `File::canView()` allows that user (it previously copied any of them, which
+  turned "duplicate a record" into "read any file on the site" — see
+  [CHANGELOG.md#Unreleased](CHANGELOG.md)). `FileDuplicator::duplicate()` stays
+  the unchecked primitive underneath, for guids that come from a column the
+  record owns.
+- **`SuneditorContent::addNonce()` is order-sensitive, and that is its whole
+  safety story.** It nonces every `<script>` in the string it is given, with no
+  way to tell which of them the caller's trust decision covered — so it belongs
+  on the stored content, before any templating/interpolation pass, never after
+  one. Called last, it blesses an injected `<script>` that arrived through an
+  interpolated value with a valid CSP nonce. Documented on the method and in the
+  README; worth checking in any consumer that renders unpurified content.
 - **`EditorFileHelper::sync()`'s `$keepGuids` contract is easy to get wrong.**
   It must be *every* guid the record owns outside the editor field, not just
   "whatever this request's form happened to submit" — a caller that passes an

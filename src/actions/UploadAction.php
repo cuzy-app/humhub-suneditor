@@ -28,7 +28,8 @@ use yii\web\UploadedFile;
  * }
  * ```
  * Access control is the host controller's job — this action only checks that
- * the request is a POST, nothing about who is allowed to make it.
+ * the request is a POST made by a logged-in user, nothing about which users are
+ * allowed to make it.
  *
  * Files are stored **unattached**. The record the content belongs to may not
  * exist yet (e.g. a brand-new record still being filled in), and attaching a
@@ -47,6 +48,17 @@ class UploadAction extends Action
     {
         if (Yii::$app->request->method !== 'POST') {
             throw new HttpException(405, 'This endpoint only accepts POST requests.');
+        }
+
+        // Deciding *which* users may upload here stays the host controller's job
+        // (see the class docblock); this only rules out the one answer that is
+        // never the intended one. A host that forgets its access rules would
+        // otherwise expose an unauthenticated endpoint that writes files into
+        // the site's own storage, and the rows it creates are unusable anyway:
+        // a File that is unattached and has no creator is viewable by nobody
+        // (`File::canView()`), so the upload could only ever be storage abuse.
+        if (Yii::$app->user->isGuest) {
+            throw new HttpException(403, 'Uploading files requires a logged-in user.');
         }
 
         Yii::$app->response->format = Response::FORMAT_JSON;

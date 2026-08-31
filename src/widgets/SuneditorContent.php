@@ -118,6 +118,21 @@ class SuneditorContent extends Widget
      * tags (see {@see purify()}'s docblock for why that decision cannot safely
      * be made by this class), and still wants the one piece of that job
      * purification would otherwise have handled for it.
+     *
+     * **Call it on the stored content, before interpolating anything else into
+     * that string.** It nonces every `<script>` present by the time it runs, and
+     * has no way to tell which of them the trust decision above was actually
+     * about. Run it last — after a templating pass that fills placeholders from
+     * a profile field, a site setting, a feed — and whoever controls one of
+     * those values gets a `<script>` tag carrying a valid CSP nonce, which is
+     * precisely the injection the nonce exists to refuse. Nonce first,
+     * interpolate afterwards (HTML-encoding what is interpolated), and an
+     * injected `<script>` reaches the browser unnonced and blocked:
+     *
+     * ```php
+     * echo yourTemplatingPass(SuneditorContent::addNonce($model->content));
+     * // and not: addNonce(yourTemplatingPass($model->content))
+     * ```
      */
     public static function addNonce(string $html): string
     {
