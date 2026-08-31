@@ -4,6 +4,7 @@ namespace cuzyapp\suneditor\helpers;
 
 use humhub\components\ActiveRecord;
 use humhub\modules\file\models\File;
+use humhub\modules\user\models\User;
 use Yii;
 use yii\db\ActiveRecordInterface;
 
@@ -98,22 +99,52 @@ class EditorFileHelper
     }
 
     /**
-     * Gives $owner its own copy of every file embedded in $html and returns the
-     * content rewritten to point at those copies.
+     * Gives $owner its own copy of every file embedded in $html that $user is
+     * allowed to see, and returns the content rewritten to point at those copies.
      *
      * Used when duplicating a record that has a SuneditorField field: the copy
      * must not reference the original's File rows, for the same reason
      * {@see FileDuplicator} exists.
      *
      * $owner must already be saved — attaching a file needs its primary key.
+     *
+     * @param User|int|null $user the user performing the duplication, defaulting
+     *        to the logged-in one. Only files this user may view are copied —
+     *        pass it explicitly when duplicating outside a web request (a queue
+     *        job, a console command), where there is no logged-in user to fall
+     *        back to and every guid would otherwise be refused.
      */
-    public static function duplicateEmbeddedFiles(?string $html, ActiveRecordInterface $owner): ?string
-    {
+    public static function duplicateEmbeddedFiles(
+        ?string $html,
+        ActiveRecordInterface $owner,
+        User|int|null $user = null,
+    ): ?string {
         if ($html === null || $html === '') {
             return $html;
         }
 
         foreach (self::extractGuids($html) as $guid) {
+            $sourceFile = File::findOne(['guid' => $guid]);
+
+            // Same reason {@see sync()} only attaches the current user's own
+            // pending uploads: the guids come from author-editable HTML, so a
+            // guid the author put into the content — typed into the code view,
+            // or simply hidden in a link's URL, which GUID_PATTERN matches just
+            // as well — must not be able to pull an unrelated file into this
+            // record. Here it would arrive as a byte-for-byte copy attached to
+            // the *new* record, whose own visibility rules the author controls,
+            // so without this check duplicating a record doubles as "download
+            // any file on the site".
+            //
+            // canView() is core's own "may download this file" predicate — the
+            // one its download controller applies — so nothing survives here
+            // that $user could not already have fetched directly. A guid that
+            // doesn't survive is left pointing at the original: the copy shows a
+            // broken embed, and the download stays refused by that same check.
+            if ($sourceFile === null || !$sourceFile->canView($user)) {
+                continue;
+            }
+
             $newGuid = FileDuplicator::duplicate($guid, $owner);
 
             if ($newGuid !== null) {

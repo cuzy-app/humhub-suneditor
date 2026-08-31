@@ -40,8 +40,9 @@ module composer.json follows for `humhub/humhub` itself.
 
 `UploadAction` handles the HTTP side (validating the file against the
 administration area's extension/size settings, storing it, downscaling images).
-Access control is your controller's job — the action only checks that the
-request is POST:
+Access control is your controller's job — the action itself only checks that the
+request is a POST from a logged-in user, never which users are allowed to make
+it:
 
 ```php
 use cuzyapp\suneditor\actions\UploadAction;
@@ -215,6 +216,18 @@ attached:
 echo SuneditorContent::addNonce($html);
 ```
 
+Call it on the stored content, **before** any templating pass that interpolates
+values into that string. `addNonce()` nonces every `<script>` it finds and
+cannot tell which of them your trust decision was about, so running it last
+hands whoever controls an interpolated value (a profile field, a site setting,
+an imported feed) a `<script>` tag with a valid CSP nonce — the exact injection
+the nonce exists to refuse:
+
+```php
+echo yourTemplatingPass(SuneditorContent::addNonce($html)); // ✔
+echo SuneditorContent::addNonce(yourTemplatingPass($html)); // ✘
+```
+
 ## Saving and cleanup: `EditorFileHelper`
 
 Uploads land as unattached `File` rows — the record the field belongs to may
@@ -256,6 +269,21 @@ $copy->thumbnail_file_guid = FileDuplicator::duplicate($source->thumbnail_file_g
 
 // Everything embedded in the field's content — rewritten to point at the copies.
 $copy->description = EditorFileHelper::duplicateEmbeddedFiles($source->description, $copy);
+```
+
+The two differ in what they trust. `duplicateEmbeddedFiles()` reads its guids
+out of author-editable HTML, where an author can name any file on the site (in
+the code view, or just inside a link's URL), so it copies only files the acting
+user may view — `File::canView()`, core's own "may download this file" check —
+and leaves the rest pointing at the original. `FileDuplicator::duplicate()` is
+the raw primitive underneath it and checks nothing: only ever hand it a guid
+from a column the record itself owns, as above.
+
+Pass the acting user explicitly when duplicating outside a web request, where
+there is no logged-in user to fall back to:
+
+```php
+EditorFileHelper::duplicateEmbeddedFiles($source->description, $copy, $job->userId);
 ```
 
 ## Changelog

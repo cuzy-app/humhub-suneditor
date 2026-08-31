@@ -24,6 +24,15 @@ class FileDuplicator
      * identified by $sourceGuid, attached to $owner via
      * `setPolymorphicRelation()`.
      *
+     * **Performs no permission check** — it copies the bytes of whatever file
+     * carries that guid, and the copy is then governed by $owner's visibility
+     * rules rather than the source's. Only ever call it with a guid from a
+     * source the current user is already entitled to: a column of the record
+     * being duplicated (a thumbnail, an attachment), never a guid read out of
+     * author-editable content. For that,
+     * {@see EditorFileHelper::duplicateEmbeddedFiles()} applies the
+     * `File::canView()` check first.
+     *
      * @return string|null the new file's guid, or null when the source file no
      *         longer exists or could not be duplicated
      */

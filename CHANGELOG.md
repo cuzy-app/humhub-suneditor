@@ -5,6 +5,44 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- `EditorFileHelper::duplicateEmbeddedFiles()` copied *any* file whose guid
+  appeared in the content, without checking whether the user duplicating the
+  record was allowed to see it. The guids come from author-editable HTML and
+  `GUID_PATTERN` matches a bare `guid=<uuid>` anywhere in it — including inside
+  a link's URL, so the code view wasn't even needed — while the copy is a new
+  `File` row attached to the *new* record, whose visibility the author controls.
+  Any user who could author such a field and duplicate the record could
+  therefore read the contents of any file in the installation (another space's
+  private attachments, another user's uploads) by pasting its guid in first.
+  Now only files the acting user may view are copied, using `File::canView()` —
+  core's own predicate for "may download this file", so nothing survives the
+  check that the user could not already have fetched directly. A guid that
+  doesn't survive is left pointing at the original: a broken embed in the copy,
+  and a download that stays refused. `duplicateEmbeddedFiles()` takes an
+  optional third `$user` argument for duplication outside a web request.
+  `EditorFileHelper::sync()` already had the equivalent guard; this is the same
+  threat model on the duplication path.
+- `UploadAction` now refuses requests from guests. Which users may upload is
+  still the host controller's job — this only rules out the one answer that is
+  never the intended one, so a host that forgets its access rules no longer
+  exposes an unauthenticated endpoint writing into the site's file storage.
+  (The rows it created were unusable anyway: an unattached `File` with no
+  creator is viewable by nobody, so the exposure was storage abuse.)
+
+### Docs
+
+- `SuneditorContent::addNonce()` documents the ordering its safety depends on:
+  it nonces every `<script>` present when it runs and cannot tell which of them
+  the caller's trust decision was about, so it must be applied to the stored
+  content *before* any templating pass that interpolates values into the string.
+  Applied afterwards, whoever controls an interpolated value (a profile field, a
+  site setting, an imported feed) gets a `<script>` tag carrying a valid CSP
+  nonce — the injection the nonce exists to refuse.
+
 ## [1.2.3] - 2026-08-10
 
 ### Docs
@@ -161,6 +199,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[Unreleased]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.3...HEAD
 [1.2.3]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.0...v1.2.1
