@@ -156,8 +156,8 @@ humhub.module('cuzySuneditor', function (module, require, $) {
     };
 
     /**
-     * Undoes a third SunEditor bug, in the same family as
-     * {@see fixRawTextElements} and {@see guardLeadingRawTextElement}:
+     * Undoes a second SunEditor bug, in the same family as
+     * {@see fixRawTextElements}:
      * `html.compress()` — called at the very start of *every* `html.clean()`,
      * i.e. on leaving code view, on every paste, and on any programmatic HTML
      * insert — is two blind regexes with no concept of a raw-text element:
@@ -179,7 +179,7 @@ humhub.module('cuzySuneditor', function (module, require, $) {
      * runs and splicing the untouched originals back in after, on the
      * `html.compress()` method every internal caller already goes through —
      * so this covers paste and programmatic insert as well as leaving code
-     * view, not just the one path {@see guardLeadingRawTextElement} guards.
+     * view.
      */
     var guardRawTextWhitespace = function (deps) {
         var originalCompress = deps.html.compress.bind(deps.html);
@@ -194,60 +194,6 @@ humhub.module('cuzySuneditor', function (module, require, $) {
             return originalCompress(placeholderHtml).replace(/\x00(\d+)\x00/g, function (match, index) {
                 return blocks[+index];
             });
-        };
-    };
-
-    // A leading `<script>`/`<style>` in the code view, ignoring any HTML
-    // comment or whitespace before it — the only shapes that trigger the bug
-    // guardLeadingRawTextElement() works around. Once *any* other content
-    // (even just text or a <br>) precedes it, the bug does not occur.
-    var LEADING_RAW_TEXT_ELEMENT = /^(?:\s|<!--[\s\S]*?-->)*<(?:script|style)\b/i;
-
-    /**
-     * Undoes another SunEditor bug, distinct from {@see fixRawTextElements}:
-     * leaving the code view drops a `<script>`/`<style>` block entirely when
-     * it is the first real content — nothing else precedes it except
-     * whitespace or an HTML comment.
-     *
-     * Root cause is in a SunEditor-internal step unrelated to any option this
-     * package sets (`autoStyleify`, on by default, which auto-converts
-     * bold/underline/italic/strike markup on every code-view exit): it
-     * round-trips the code through `DOMParser.parseFromString(html,
-     * 'text/html')` and reads back `.body.innerHTML`. That is a *full
-     * document* parse, not a fragment parse — and per the HTML5 parsing
-     * algorithm, a document parser starts in "in head" insertion mode and
-     * only switches to "in body" once it sees content that isn't valid inside
-     * `<head>`. `<script>`/`<style>`/HTML comments are all valid there, so
-     * nothing forces the switch; the parser inserts them into `<head>`
-     * instead, and `.body.innerHTML` no longer contains them. Any other
-     * top-level content (text, `<br>`, `<p>`, …) is not valid in `<head>` and
-     * forces the switch immediately, which is why the bug never shows up once
-     * something else precedes the block.
-     *
-     * Fixed by prepending an empty `<p></p>` before such a block right before
-     * the code view closes — enough to force "in body" mode during that one
-     * internal parse. The placeholder never reaches the saved content:
-     * SunEditor's own cleanup removes empty format lines a moment later, in
-     * the same pass. Verified against the vendored suneditor.min.js, both
-     * directly (`html.clean()`) and through the real `codeView(false)`
-     * toggle, including a leading HTML comment and a `<script>` followed by a
-     * `<style>` with nothing else before either.
-     */
-    var guardLeadingRawTextElement = function (deps) {
-        var originalCodeView = deps.viewer.codeView.bind(deps.viewer);
-
-        deps.viewer.codeView = function (value) {
-            var frameContext = deps.frameContext;
-            var isCodeView = frameContext.get('isCodeView');
-            var targetValue = value === undefined ? !isCodeView : value;
-            var leavingCodeView = isCodeView && !targetValue;
-            var codeArea = leavingCodeView ? frameContext.get('code') : null;
-
-            if (codeArea && LEADING_RAW_TEXT_ELEMENT.test(codeArea.value)) {
-                codeArea.value = '<p></p>' + codeArea.value;
-            }
-
-            return originalCodeView(value);
         };
     };
 
@@ -285,6 +231,67 @@ humhub.module('cuzySuneditor', function (module, require, $) {
         }, true);
     };
 
+    // Whether a value carries a raw-text element at all — the cheap test that
+    // decides whether applyStoredValue() is needed. Deliberately not
+    // RAW_TEXT_ELEMENTS: that one is /g/, so `.test()` would carry `lastIndex`
+    // over from one call to the next and start matching mid-string.
+    var HAS_RAW_TEXT_ELEMENT = /<(?:script|style)\b/i;
+
+    /**
+     * Applies a stored value that contains a `<script>`/`<style>` block, from
+     * `onload` rather than through `create()`'s own `value` option.
+     *
+     * {@see guardRawTextWhitespace} can only be installed once the editor
+     * exists, i.e. from `onload` — but `create()` cleans the initial value
+     * before that, from `#initWysiwygArea`. A stored block therefore arrived
+     * with `html.compress()` having already stripped its newlines: merely
+     * reopening a form flattened a hand-indented stylesheet onto one line, and
+     * saving again persisted it, which is the whole thing that guard exists to
+     * prevent.
+     *
+     * `html.set()` runs the same `clean(html, {forceFormat: true})` that
+     * `#initWysiwygArea` would have, so the content lands the same way — only
+     * now with the compress patch in place.
+     *
+     * The `history.reset()` is not optional: `html.set()` pushes an undo step of
+     * its own, and SunEditor's own init-time reset has already run by the time
+     * `onload` fires (it is deferred a tick later), so without this the author's
+     * first Ctrl+Z would empty the field back to what the editor was created
+     * with.
+     */
+    var applyStoredValue = function (deps, value) {
+        deps.html.set(value);
+        deps.history.reset();
+    };
+
+    // An empty format line sitting immediately in front of a raw-text element:
+    // the shape stripLeadingEmptyLine() removes. Only the tags SunEditor uses as
+    // a `defaultLine`, and only directly before `<script>`/`<style>`, so an empty
+    // first line anywhere else — which an author may well have put there on
+    // purpose — is left alone.
+    var LEADING_EMPTY_LINE_BEFORE_RAW_TEXT =
+        /^\s*<(p|div|h[1-6])\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>\s*(?=<(?:script|style)\b)/i;
+
+    /**
+     * Drops an empty leading line from the value on its way to the textarea.
+     *
+     * SunEditor wants a format line to put the caret in, and content that starts
+     * with a `<style>` block gives it none — so some of its normalization passes
+     * insert an empty `<p><br></p>` in front. Restoring an undo snapshot is one
+     * (`html.get()` shows the empty line reappear); the editor is entitled to do
+     * that, and in the editable DOM it is even useful, since it gives the author
+     * somewhere to click above the block.
+     *
+     * What it must not do is get *stored*. Nothing in the rendered page needs
+     * that paragraph, it accumulates at the top of the content as a stray blank
+     * line, and it was reported as exactly that. So the editor DOM keeps
+     * whatever SunEditor wants, and this trims it back out of the one string
+     * that leaves the editor.
+     */
+    var stripLeadingEmptyLine = function (html) {
+        return html.replace(LEADING_EMPTY_LINE_BEFORE_RAW_TEXT, '');
+    };
+
     /**
      * Replaces a textarea with a Suneditor instance.
      *
@@ -300,13 +307,28 @@ humhub.module('cuzySuneditor', function (module, require, $) {
         }
 
         options.plugins = SUNEDITOR.plugins;
+
+        // Held back and applied in onload instead — see applyStoredValue().
+        // Replaced with an empty string rather than deleted: SunEditor reads the
+        // textarea's own content (just as unguarded) for a value that is not a
+        // string, and '' is a string, so this keeps it out of that fallback.
+        var storedValue = null;
+        if (typeof options.value === 'string' && HAS_RAW_TEXT_ELEMENT.test(options.value)) {
+            storedValue = options.value;
+            options.value = '';
+        }
+
         options.events = {
             onChange: function (content) {
-                textarea.value = content.data;
+                textarea.value = stripLeadingEmptyLine(content.data);
             },
             onload: function (params) {
                 guardRawTextWhitespace(params.$);
-                guardLeadingRawTextElement(params.$);
+
+                if (storedValue !== null) {
+                    applyStoredValue(params.$, storedValue);
+                }
+
                 syncBeforeSubmit(params.$, textarea);
 
                 // Only when the field was given somewhere to upload to; without

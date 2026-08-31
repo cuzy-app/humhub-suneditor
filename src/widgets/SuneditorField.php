@@ -148,6 +148,10 @@ class SuneditorField extends InputWidget
      *   managed component would have gotten. Not on by default; decide per
      *   field whether "preserve exactly what was typed" is worth that.
      *
+     * Allowing `script`/`style` also switches SunEditor's `autoStyleify` off,
+     * because that pass destroys a raw-text element that leads the content —
+     * see {@see getRawTextOptions()}. Pass `autoStyleify` here to override.
+     *
      * Rendering that content back out safely is a separate concern — see
      * {@see \cuzyapp\suneditor\widgets\SuneditorContent::addNonce()}.
      */
@@ -168,7 +172,9 @@ class SuneditorField extends InputWidget
                 'value'      => $value,
                 'buttonList' => $this->getButtonList(),
             ],
+            $this->getRawTextOptions(),
             $this->getUploadOptions(),
+            // Last, so anything computed above is a default the caller can override.
             $this->editorOptions,
         );
 
@@ -234,6 +240,48 @@ class SuneditorField extends InputWidget
         }
 
         return $result;
+    }
+
+    /**
+     * Turns SunEditor's `autoStyleify` off for a field that allows
+     * `<script>`/`<style>`, because that pass destroys them.
+     *
+     * `autoStyleify` (default `['bold', 'underline', 'italic', 'strike']`) is the
+     * step that gives a `<span style="font-weight: bold">` a nested `<strong>`,
+     * and it is implemented — see SunEditor's `html.clean()` — as a round trip
+     * through `DOMParser.parseFromString(html, 'text/html')` reading back
+     * `.body.innerHTML`. That is a *full document* parse: per the HTML5 parsing
+     * algorithm the parser starts in "in head" insertion mode and switches to
+     * "in body" only on content that isn't valid inside `<head>`.
+     * `<script>`/`<style>`/comments are all valid there, so a block that leads
+     * the content is parsed into `<head>` and vanishes from `.body.innerHTML`.
+     * Anything else in front of it (text, a `<br>`, a `<p>`) forces the switch,
+     * which is why the loss only ever hits the *first* element.
+     *
+     * `html.clean()` runs on editor init and on every code-view exit and paste,
+     * so with `autoStyleify` on, content that starts with a `<style>` block
+     * loses it both when the form is reopened on already-saved content and when
+     * the author leaves the code view. Switching the pass off removes the parse
+     * entirely; what a field like this gives up is only that nested `<strong>`
+     * (the span keeps its inline style, so nothing changes visually), which is a
+     * fair trade for a field whose whole point is keeping what was typed.
+     *
+     * Set `autoStyleify` in {@see $editorOptions} to override — it is merged
+     * after this.
+     *
+     * @return array empty unless this field allows a raw-text tag
+     */
+    private function getRawTextOptions(): array
+    {
+        $extraTags = $this->editorOptions['allowedExtraTags'] ?? [];
+
+        if (!is_array($extraTags)) {
+            return [];
+        }
+
+        $allowsRawText = ($extraTags['script'] ?? false) || ($extraTags['style'] ?? false);
+
+        return $allowsRawText ? ['autoStyleify' => []] : [];
     }
 
     /**

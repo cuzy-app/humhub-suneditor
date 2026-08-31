@@ -5,6 +5,55 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Content whose first element was a `<script>` or `<style>` block gained an
+  empty paragraph in front of it — visible in the code view as `<p><br>` on its
+  own line, and stored that way. It was the placeholder
+  `guardLeadingRawTextElement()` prepended in 1.2.2 to force the HTML parser out
+  of "in head" insertion mode; the claim in that entry that "SunEditor's own
+  cleanup removes empty format lines a moment later" was wrong — the empty
+  paragraph survives every round trip.
+- The same leading block was still lost outright when the *editor was
+  initialised* on already-saved content, a path that workaround never covered
+  (it hooked `viewer.codeView` only, and `html.clean()` also runs on init). The
+  placeholder had been hiding this: content saved with it no longer *starts*
+  with the raw-text element, so nothing was dropped on reopening. A field saved
+  by any other route lost its leading `<style>` the next time the form opened.
+
+  Both are now fixed at the root instead: a field that allows `script`/`style`
+  through `allowedExtraTags` gets `autoStyleify: []`, which removes the
+  full-document `DOMParser` round trip those blocks were disappearing into, so
+  no placeholder is needed anywhere. `guardLeadingRawTextElement()` is gone.
+  What such a field gives up is `autoStyleify`'s own service — giving a
+  `<span style="font-weight: bold">` a nested `<strong>` — which changes nothing
+  visually, since the span keeps its inline style. Set `autoStyleify` in
+  `editorOptions` to override. Verified against the vendored `suneditor.min.js`
+  under headless Chrome, on both paths: form reopened on stored content starting
+  with `<style>`, and a leading `<style>` typed into the code view then
+  submitted.
+- Reopening a form flattened a stored `<script>`/`<style>` block onto one line,
+  and saving again persisted that — a hand-indented stylesheet lost its
+  formatting just by being looked at. `guardRawTextWhitespace()` (1.2.2) could
+  only be installed from the `onload` event, while `create()` cleans the initial
+  value before that, so the block was already through the unguarded
+  `html.compress()` by the time the guard existed. A value containing a raw-text
+  element is now held back from `create()` and applied in `onload` instead, via
+  `html.set()` — the same `clean(html, {forceFormat: true})` `create()` would
+  have run, only with the compress patch in place — followed by
+  `history.reset()`, without which the author's first Ctrl+Z would empty the
+  field back to what the editor was created with.
+- An empty `<p><br></p>` could still come back at the top of the stored content
+  after an undo: SunEditor's normalization inserts a format line in front of a
+  leading raw-text element, since content starting with `<style>` gives the caret
+  nowhere to sit. That line is reasonable in the editable DOM — it is what lets
+  an author click above the block — but it has no business being saved, so it is
+  now trimmed from the value handed to the textarea. Only ever a leading empty
+  line *immediately before* a `<script>`/`<style>`: an empty first line anywhere
+  else is left alone, on the assumption the author meant it.
+
 ## [1.3.0] - 2026-08-31
 
 ### Security
@@ -199,6 +248,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[Unreleased]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.1...v1.2.2

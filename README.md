@@ -133,6 +133,16 @@ work here on its own: `script`/`style`/`meta`/`link` are independently
 blacklisted by default through `allowedExtraTags`, and that blacklist wins
 regardless of what `elementWhitelist` allows.
 
+Allowing either tag also makes the widget send `autoStyleify: []`. SunEditor's
+`autoStyleify` pass — the one that gives a `<span style="font-weight: bold">` a
+nested `<strong>` — parses the content as a whole HTML *document* and reads back
+only its `<body>`, and a `<script>`/`<style>` that leads the content is valid
+inside `<head>`, so that is where the parser puts it and it is never seen again.
+Switching the pass off is what keeps such a block through both editor init and
+`codeView`. The field loses only the nested `<strong>`, which changes nothing
+visually — the span keeps its inline style. Pass your own `autoStyleify` in
+`editorOptions` to override it.
+
 **`id`, a custom `class`, or an inline `style` on an element.** SunEditor drops
 all three by default — `id` and `style` entirely, `class` down to nothing
 outside its own internal classes:

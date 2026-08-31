@@ -74,18 +74,44 @@ CHANGELOG.md entry); this is only the index so you know where to look:
   generically (e.g. a wall entry's file footer). Set in `UploadAction`, not in
   `EditorFileHelper::sync()`, since it has to happen once, at upload time —
   not be recomputed every sync. See [CHANGELOG.md#1.2.1](CHANGELOG.md).
-- **Leaving code view can silently drop a leading `<script>`/`<style>` block,
-  and separately can mangle one's internal whitespace.** Both are SunEditor
-  bugs unrelated to any option this package sets — a leading raw-text element
-  (nothing before it but whitespace/a comment) gets lost to a full-document
-  `DOMParser` parse's head/body insertion-mode quirk inside `autoStyleify`;
-  `html.compress()` strips every newline in the whole string, including
-  inside `<script>`/`<style>`, with no raw-text-element awareness at all.
-  Both are worked around in `humhub.suneditor.js`
-  (`guardLeadingRawTextElement`, `guardRawTextWhitespace`) by monkey-patching
-  `viewer.codeView`/`html.compress` on the live SunEditor instance — there is
-  no public option for either. See [CHANGELOG.md#1.2.2](CHANGELOG.md) for the
-  full trace of both root causes.
+- **`autoStyleify` eats a leading `<script>`/`<style>`, so a field that allows
+  those tags must switch it off.** `autoStyleify` (SunEditor's
+  `<span style="font-weight:bold">` → nested `<strong>` pass, on by default) is
+  implemented as a round trip through `DOMParser.parseFromString(html,
+  'text/html')` reading back `.body.innerHTML` — a *full document* parse, whose
+  insertion mode starts "in head", where `<script>`/`<style>`/comments are all
+  valid. A block that leads the content is therefore parsed into `<head>` and
+  vanishes; anything in front of it forces "in body" and it survives. Since
+  `html.clean()` runs on editor init as well as on code-view exit and paste,
+  this hit both reopening a saved field and leaving the code view.
+  `SuneditorField::getRawTextOptions()` now emits `autoStyleify: []` whenever
+  `allowedExtraTags` allows `script`/`style`. **1.2.2–1.3.0 instead prepended an
+  empty `<p></p>` in JS to force the mode switch** — that placeholder was never
+  cleaned up (it reached the stored content, `<p><br></p>` in the code view) and
+  covered only the code-view path, while accidentally masking the init-path loss
+  by making the block no longer leading. Don't reintroduce it. See
+  [CHANGELOG.md#Unreleased](CHANGELOG.md).
+- **`html.compress()` mangles whitespace inside `<script>`/`<style>`.** It
+  strips every newline in the whole string and collapses whitespace between any
+  two tags, with no raw-text-element awareness — so a carefully indented
+  stylesheet comes out on one line. Worked around in `humhub.suneditor.js`
+  (`guardRawTextWhitespace`) by monkey-patching `html.compress` on the live
+  instance; there is no option for it. The patch can only be installed from
+  `onload`, which is *after* `create()` cleans the initial `value` — so a value
+  containing a raw-text element is held back from `create()` and applied in
+  `onload` through `applyStoredValue()` (`html.set()` + `history.reset()`;
+  without the reset, the first Ctrl+Z empties the field, because SunEditor's own
+  init-time history reset has already run by then). See
+  [CHANGELOG.md#1.2.2](CHANGELOG.md) and `#Unreleased`.
+- **SunEditor inserts an empty format line in front of a leading raw-text
+  element**, in normalization passes such as restoring an undo snapshot —
+  content starting with `<style>` leaves the caret nowhere to sit. Correct in the
+  editable DOM, wrong in storage, where it shows up as a stray blank line at the
+  top of the content (and was reported as such). `stripLeadingEmptyLine()` trims
+  it from the value written to the textarea, and *only* when it sits immediately
+  before a `<script>`/`<style>` — an empty first line anywhere else is assumed
+  intentional. Verified: normal editing never adds it, an undo does, and the
+  stored value is clean either way.
 - **Every guid read out of editor content is untrusted input.** `GUID_PATTERN`
   matches a bare `guid=<uuid>` anywhere in the HTML — inside a link's URL as
   readily as in the code view — so an author can name any file in the
@@ -126,8 +152,27 @@ every time: drive the **real vendored** `suneditor.min.js`/`.css` (from
 or just the copy in a consuming module's `vendor/`) in a standalone HTML page
 under headless Chrome via Playwright — no HumHub server, no login, no
 database. Load the page, call `SUNEDITOR.create()` with the options under
-test, drive the DOM (type into code view, toggle buttons, read
-`.getContents()`), and compare against what the option was supposed to do.
+test, drive the DOM (type into code view, toggle buttons, read the content) and
+compare against what the option was supposed to do.
+
+Practical notes, each of which cost a cycle to rediscover:
+
+- **Read content with `html.get()`**, not `getContents()` — the instance
+  `SUNEDITOR.create()` returns exposes no getter of that name in v3.
+- **Generate the harness page from `humhub.suneditor.js` itself** (strip the
+  `humhub.module(...)` wrapper and re-export `create`) rather than pasting
+  copies of the functions in. A hand-copied harness tests the copy, not what
+  ships, and will happily keep passing after the module changes.
+- **Get at the editor internals by wrapping `SUNEDITOR.create`** to intercept
+  `options.events.onload` and stash `params.$`. That object (`html`, `viewer`,
+  `history`, `frameContext`, `selection`, …) is what the module's own guards
+  patch, and it is the only handle on them.
+- **Test the init path, not just the code-view path.** `html.clean()` runs on
+  `create()` too, and two separate bugs lived there unnoticed because a
+  workaround aimed at `viewer.codeView` happened to mask them.
+- **Type through `selection.setRange()` on a text node**, then
+  `keyboard.type()`. Clicking `.se-wrapper-wysiwyg` does not reliably place the
+  caret headless, and a test that types nowhere passes for the wrong reason.
 
 This is worth doing again for any change to `editorOptions` handling,
 `buttonList`/`excludeButtons` logic, or anything touching the code-view
