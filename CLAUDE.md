@@ -94,7 +94,7 @@ CHANGELOG.md entry); this is only the index so you know where to look:
   own unassigned uploads, and `duplicateEmbeddedFiles()` copies only files
   `File::canView()` allows that user (it previously copied any of them, which
   turned "duplicate a record" into "read any file on the site" — see
-  [CHANGELOG.md#Unreleased](CHANGELOG.md)). `FileDuplicator::duplicate()` stays
+  [CHANGELOG.md#1.3.0](CHANGELOG.md)). `FileDuplicator::duplicate()` stays
   the unchecked primitive underneath, for guids that come from a column the
   record owns.
 - **`SuneditorContent::addNonce()` is order-sensitive, and that is its whole
