@@ -292,6 +292,10 @@ humhub.module('cuzySuneditor', function (module, require, $) {
         return html.replace(LEADING_EMPTY_LINE_BEFORE_RAW_TEXT, '');
     };
 
+    // The editors created on this page, by textarea id, for instance() and
+    // setHtml(). An id re-created after a PJAX load replaces its entry.
+    var instances = {};
+
     /**
      * Replaces a textarea with a Suneditor instance.
      *
@@ -351,10 +355,44 @@ humhub.module('cuzySuneditor', function (module, require, $) {
             options.events.onFileUploadBefore = dropMediaFromAttachments;
         }
 
-        SUNEDITOR.create(textarea, options);
+        instances[id] = SUNEDITOR.create(textarea, options);
+    };
+
+    /**
+     * The Suneditor instance of a field, for a module that drives the editor
+     * from its own JS (SunEditor v3 API: `html.get()`, `html.set()`,
+     * `viewer.codeView()`...).
+     *
+     * @param {string} id id of the field's textarea
+     * @returns {Object|null} null before create() ran for that id
+     */
+    var instance = function (id) {
+        return instances[id] || null;
+    };
+
+    /**
+     * Replaces the content of a field, as an undoable step: the editor cleans
+     * the HTML as it does a paste, the textarea is updated, and the author can
+     * Ctrl+Z back to what was there.
+     *
+     * @param {string} id id of the field's textarea
+     * @param {string} html the new content
+     * @returns {boolean} false when no editor was created for that id
+     */
+    var setHtml = function (id, html) {
+        var editor = instance(id);
+        if (!editor) {
+            return false;
+        }
+
+        editor.html.set(html);
+
+        return true;
     };
 
     module.export({
         create: create,
+        instance: instance,
+        setHtml: setHtml,
     });
 });

@@ -5,6 +5,20 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-10-30
+
+### Added
+
+- `humhub.require('cuzySuneditor').instance(id)` and `.setHtml(id, html)`: the
+  editor of a field, by its textarea id, for a module that drives the editor
+  from its own JS. `create()` used to discard the instance `SUNEDITOR.create()`
+  returned, and SunEditor v3 attaches it to no DOM element, so a module had no
+  way to fill a field programmatically (eCommerce loads ready-made invoice and
+  receipt templates into the vendor form). `setHtml()` goes through
+  `html.set()`, which cleans the HTML as a paste would and pushes an undo step,
+  so the author can Ctrl+Z back to the previous content and the textarea is
+  updated through `onChange`.
+
 ## [1.3.2] - 2026-10-22
 
 ### Fixed
@@ -269,6 +283,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[1.4.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.2.3...v1.3.0

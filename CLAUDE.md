@@ -260,6 +260,11 @@ useful context before assuming a change is safe everywhere:
   never rendered inside HumHub — it's sent outbound to a WordPress API, where
   it's purified at the point of building that payload (`WpApiPostModel`/
   `WpApiEventModel`), not via the `SuneditorContent` widget.
+- **eCommerce** (`modules_cuzy/ecommerce`) — the invoice and payment receipt
+  PDF templates of a vendor (`VendorForm::PDF_TEMPLATE_EDITOR_OPTIONS`:
+  `<style>` allowed, `strictMode` filters off so a hand-built layout survives).
+  No `uploadUrl`. The only consumer of the JS API (`setHtml()`, 1.4.0): its
+  vendor form loads ready-made templates into the two fields.
 - **Web Feed** (`modules_cuzy/web-feed`) — post description on content
   retrieved from an external feed, editable by anyone who can manage the
   feed. `uploadUrl` set; also has its own independent "Attach Files" dropzone

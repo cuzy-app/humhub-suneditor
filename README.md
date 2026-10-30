@@ -187,6 +187,28 @@ above, and is not on by default.
 Rendering that content back out safely is a separate concern from authoring it
 — see `SuneditorContent::addNonce()` below.
 
+### Driving the editor from your own JS
+
+The `cuzySuneditor` JS module keeps every editor it creates, by the id of the
+field's textarea (`$form->field()` gives `<formname>-<attribute>`, e.g.
+`vendorform-invoice_template`):
+
+```js
+var suneditor = humhub.require('cuzySuneditor');
+
+// Replace the content, as one undoable step (the author can Ctrl+Z back)
+suneditor.setHtml('vendorform-invoice_template', '<p>Hello</p>');
+
+// Or anything else of the SunEditor v3 API
+var editor = suneditor.instance('vendorform-invoice_template');
+var html = editor ? editor.html.get() : null;
+```
+
+`instance()` returns `null` for an id no editor was created for (the field is
+not on the page, or its `create()` has not run yet: the widget registers it at
+`POS_READY`). `setHtml()` cleans the HTML as a paste would and updates the
+textarea, so the form submits the new content.
+
 ## Rendering: `SuneditorContent`
 
 Every place that displays what `SuneditorField` produced must go through this
