@@ -149,6 +149,12 @@ CHANGELOG.md entry); this is only the index so you know where to look:
   the row's (transparent) background while HumHub's `[data-ui-markdown]`
   wrapper forces white header text with `!important`. See
   [CHANGELOG.md#1.3.2](CHANGELOG.md).
+- **The API lives on `editor.$`, not on what `SUNEDITOR.create()` returns.**
+  v3's `create()` returns an `Editor` (`destroy()`, `isEmpty()`,
+  `resetOptions()`) whose `$` is the object with `html`, `viewer`, `history`,
+  `selection`… — the same one `onload` gets as `params.$`. `instance()` hands
+  out that `$`; 1.4.0 handed out the `Editor` and `setHtml()` threw. See
+  [CHANGELOG.md#1.4.1](CHANGELOG.md).
 - **`EditorFileHelper::sync()`'s `$keepGuids` contract is easy to get wrong.**
   It must be *every* guid the record owns outside the editor field, not just
   "whatever this request's form happened to submit" — a caller that passes an

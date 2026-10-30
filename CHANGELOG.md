@@ -5,6 +5,17 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-10-30
+
+### Fixed
+
+- `instance()` returned the `Editor` object that `SUNEDITOR.create()` returns,
+  which has no `html` of its own: SunEditor v3 carries the API object (`html`,
+  `viewer`, `history`, `selection`…) as its `$` property, the same object
+  `onload` receives as `params.$`. So `instance(id).html.get()` and
+  `setHtml()` threw `Cannot read properties of undefined (reading 'set')`.
+  Both now work on that `$`, as documented.
+
 ## [1.4.0] - 2026-10-30
 
 ### Added
@@ -283,6 +294,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[1.4.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.0...v1.3.1

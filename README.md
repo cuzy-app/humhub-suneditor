@@ -204,7 +204,9 @@ var editor = suneditor.instance('vendorform-invoice_template');
 var html = editor ? editor.html.get() : null;
 ```
 
-`instance()` returns `null` for an id no editor was created for (the field is
+`instance()` returns the SunEditor API object (what `onload` receives as
+`params.$`, the `$` of the `Editor` that `SUNEDITOR.create()` returns), or
+`null` for an id no editor was created for (the field is
 not on the page, or its `create()` has not run yet: the widget registers it at
 `POS_READY`). `setHtml()` cleans the HTML as a paste would and updates the
 textarea, so the form submits the new content.

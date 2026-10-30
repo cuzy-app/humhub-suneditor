@@ -293,7 +293,11 @@ humhub.module('cuzySuneditor', function (module, require, $) {
     };
 
     // The editors created on this page, by textarea id, for instance() and
-    // setHtml(). An id re-created after a PJAX load replaces its entry.
+    // setHtml(). An id re-created after a PJAX load replaces its entry. What
+    // is kept is the API object (`html`, `viewer`, `history`, `selection`…):
+    // SunEditor v3's `create()` returns an `Editor` that carries it as `$`
+    // (the same object `onload` gets as `params.$`) and exposes no `html`
+    // of its own — 1.4.0 kept the `Editor`, so `setHtml()` threw.
     var instances = {};
 
     /**
@@ -355,13 +359,14 @@ humhub.module('cuzySuneditor', function (module, require, $) {
             options.events.onFileUploadBefore = dropMediaFromAttachments;
         }
 
-        instances[id] = SUNEDITOR.create(textarea, options);
+        instances[id] = SUNEDITOR.create(textarea, options).$;
     };
 
     /**
-     * The Suneditor instance of a field, for a module that drives the editor
-     * from its own JS (SunEditor v3 API: `html.get()`, `html.set()`,
-     * `viewer.codeView()`...).
+     * The Suneditor API object of a field, for a module that drives the editor
+     * from its own JS (SunEditor v3: `html.get()`, `html.set()`,
+     * `viewer.codeView()`...): the `$` of the `Editor` that `SUNEDITOR.create()`
+     * returned, which is also what `onload` receives as `params.$`.
      *
      * @param {string} id id of the field's textarea
      * @returns {Object|null} null before create() ran for that id
