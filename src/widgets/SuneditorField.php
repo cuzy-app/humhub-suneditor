@@ -157,6 +157,19 @@ class SuneditorField extends InputWidget
      */
     public array $editorOptions = [];
 
+    /**
+     * Language of the editor interface (toolbar tooltips, dialogs), as a HumHub
+     * / Yii language code (`fr`, `fr-FR`, `pt-BR`…). Null: the application
+     * language. A language SunEditor has no translation for falls back to its
+     * built-in English. A `lang` set in {@see $editorOptions} wins.
+     *
+     * SunEditor v3 ships its translations only as separate scripts
+     * (`src/langs/<code>.js`, each defining `window.SUNEDITOR_LANG[<code>]`),
+     * not in `suneditor.min.js`: the matching one is published and registered
+     * after the library, and create() is given its code.
+     */
+    public ?string $language = null;
+
     public function run(): string
     {
         SuneditorFieldAssets::register($this->view);
@@ -174,6 +187,7 @@ class SuneditorField extends InputWidget
             ],
             $this->getRawTextOptions(),
             $this->getUploadOptions(),
+            $this->getLanguageOptions(),
             // Last, so anything computed above is a default the caller can override.
             $this->editorOptions,
         );
@@ -199,6 +213,59 @@ class SuneditorField extends InputWidget
         return $this->hasModel()
             ? Html::activeTextarea($this->model, $this->attribute, $this->options)
             : Html::textarea($this->name, $this->value, $this->options);
+    }
+
+    /**
+     * @return array `['lang' => <SunEditor language code>]`, with the translation
+     *         script registered, or `[]` for English / an unknown language
+     */
+    private function getLanguageOptions(): array
+    {
+        if (array_key_exists('lang', $this->editorOptions)) {
+            return [];
+        }
+
+        $code = static::resolveLanguageCode($this->language ?? Yii::$app->language);
+        if ($code === null) {
+            return [];
+        }
+
+        $langsDir = \Composer\InstalledVersions::getInstallPath('npm-asset/suneditor') . '/src/langs';
+        [, $langsUrl] = Yii::$app->assetManager->publish($langsDir);
+        $this->view->registerJsFile(Yii::getAlias($langsUrl) . '/' . $code . '.js', [
+            'depends' => SuneditorFieldAssets::class,
+        ]);
+
+        return ['lang' => $code];
+    }
+
+    /**
+     * The SunEditor translation matching a HumHub / Yii language code, or null
+     * when there is none (or it is English, SunEditor's built-in language)
+     *
+     * `fr-FR` → `fr`, `pt-BR` → `pt_br`, `zh-CN` → `zh_cn`, `sv` → `se`.
+     */
+    public static function resolveLanguageCode(?string $language): ?string
+    {
+        if ($language === null || $language === '') {
+            return null;
+        }
+
+        $language = strtolower(str_replace('-', '_', $language));
+        $base = explode('_', $language)[0];
+        $aliases = ['sv' => 'se', 'pt' => 'pt_br', 'zh' => 'zh_cn', 'nb' => null, 'nn' => null];
+
+        $langsDir = \Composer\InstalledVersions::getInstallPath('npm-asset/suneditor') . '/src/langs';
+        foreach ([$language, $base, $aliases[$base] ?? null] as $candidate) {
+            if ($candidate === null || $candidate === 'en' || $candidate === 'index') {
+                continue;
+            }
+            if (preg_match('/^[a-z_]+$/', $candidate) && is_file($langsDir . '/' . $candidate . '.js')) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

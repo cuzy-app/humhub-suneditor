@@ -316,6 +316,17 @@ humhub.module('cuzySuneditor', function (module, require, $) {
 
         options.plugins = SUNEDITOR.plugins;
 
+        // The widget passes the code of a translation it registered (SuneditorField::$language):
+        // SunEditor wants the translation object itself.
+        if (typeof options.lang === 'string') {
+            var langs = window.SUNEDITOR_LANG || {};
+            if (langs[options.lang]) {
+                options.lang = langs[options.lang];
+            } else {
+                delete options.lang;
+            }
+        }
+
         // Held back and applied in onload instead — see applyStoredValue().
         // Replaced with an empty string rather than deleted: SunEditor reads the
         // textarea's own content (just as unguarded) for a value that is not a

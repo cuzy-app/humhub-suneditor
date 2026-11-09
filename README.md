@@ -187,6 +187,23 @@ above, and is not on by default.
 Rendering that content back out safely is a separate concern from authoring it
 — see `SuneditorContent::addNonce()` below.
 
+### Interface language: `language`
+
+The toolbar tooltips and dialogs follow the application language
+(`Yii::$app->language`) when SunEditor has a translation for it (`fr`, `de`,
+`es`, `it`, `nl`, `pl`, `pt_br`, `ru`, `zh_cn`…); otherwise they stay in
+SunEditor's built-in English. Force a language with `language`:
+
+```php
+<?= $form->field($model, 'content')->widget(SuneditorField::class, [
+    'language' => 'fr',
+]) ?>
+```
+
+SunEditor v3 ships its translations as separate scripts (not in
+`suneditor.min.js`): the widget publishes the matching one and loads it after
+the library. A `lang` given in `editorOptions` wins over this.
+
 ### Driving the editor from your own JS
 
 The `cuzySuneditor` JS module keeps every editor it creates, by the id of the

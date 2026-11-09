@@ -5,6 +5,19 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-09
+
+### Added
+
+- `SuneditorField::$language`: the editor interface (toolbar tooltips,
+  dialogs) is translated into the application language — or the given one —
+  when SunEditor has a translation for it. It was always English: SunEditor v3
+  ships its translations only as separate `src/langs/<code>.js` scripts, which
+  were never loaded. The matching script is now published and registered after
+  the library, and `create()` gets it as `lang`. HumHub codes are mapped
+  (`fr-FR` → `fr`, `pt-BR` → `pt_br`, `zh-CN` → `zh_cn`, `sv` → `se`); English
+  or a language without a translation loads nothing.
+
 ## [1.4.1] - 2026-10-30
 
 ### Fixed
@@ -294,6 +307,7 @@ option this package sets and to each other:
 - Initial release: `SuneditorField`/`SuneditorContent` widgets, the generic
   upload `Action`, and the `EditorFileHelper` file-lifecycle helper.
 
+[1.5.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/cuzy-app/humhub-suneditor/compare/v1.3.1...v1.3.2
